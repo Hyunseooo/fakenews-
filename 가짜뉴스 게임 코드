@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>진짜? 가짜! 뉴스 판별 게임</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --background: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+        }
+
+        body {
+            background: var(--background);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        /* 카드 스타일 */
+        .card-container {
+            position: relative;
+            height: 380px;
+            margin-bottom: 25px;
+            perspective: 1000px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.4s ease, transform 0.4s ease;
+            overflow: hidden;
+        }
+
+        /* 정답/오답 피드백 스타일 */
+        .card.correct {
+            background-color: rgba(46, 204, 113, 0.15);
+            border: 3px solid var(--success);
+        }
+
+        .card.wrong {
+            background-color: rgba(231, 76, 60, 0.15);
+            border: 3px solid var(--danger);
+        }
+
+        .card img {
+            width: 100%;
+            max-height: 180px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .headline {
+            font-size: 1.2rem;
+            font-weight: bold;
+            line-height: 1.4;
+            word-break: keep-all;
+        }
+
+        /* 버튼 영역 */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 50px;
+            padding: 15px 35px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s ease, opacity 0.2s ease;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-real { background-color: var(--success); }
+        .btn-fake { background-color: var(--danger); }
+        .btn-next { background-color: var(--primary); width: 100%; }
+
+        /* 해설 및 결과 영역 */
+        .explanation-box {
+            background: #eef2f7;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 15px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            text-align: left;
+            display: none;
+        }
+
+        .explanation-box .result-text {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .result-screen {
+            background: var(--card-bg);
+            padding: 40px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .score-text {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>📰 진짜? 가짜! 뉴스 판별 게임</h1>
+
+    <div id="game-stage">
+        <div class="card-container">
+            <div class="card" id="news-card">
+                </div>
+        </div>
+
+        <div class="button-group" id="action-buttons">
+            <button class="btn btn-real" onclick="checkAnswer(false)">O 진짜 뉴스</button>
+            <button class="btn btn-fake" onclick="checkAnswer(true)">X 가짜 뉴스</button>
+        </div>
+
+        <button class="btn btn-next" id="next-btn" style="display: none;" onclick="nextCard()">다음 뉴스 보기</button>
+
+        <div class="explanation-box" id="explanation-box">
+            <span class="result-text" id="result-status"></span>
+            <p id="reason-text"></p>
+        </div>
+    </div>
+
+    <div class="result-screen" id="result-stage">
+        <h2>퀴즈 종료!</h2>
+        <p class="score-text"><span id="correct-count">0</span> / <span id="total-count">0</span></p>
+        <p>뉴스를 구별하는 눈이 한층 더 날카로워졌기를 바랍니다!</p>
+        <button class="btn btn-next" style="margin-top: 25px;" onclick="restartGame()">다시 도전하기</button>
+    </div>
+</div>
+
+<script>
+    // 문법 오류(따옴표 누락) 수정된 JSON 데이터 배열
+    const quizData = [
+        {
+            "headline": "국민 여동생과 '상남자' 배우 뜻밖의 '핑크빛' 소식 전했다 '축하 물결'",
+            "isFake": true,         
+            "reason": "두 사람은 강형철 감독의 신작인 '너와 함께라면' 캐스팅 물망에 오른 것일 뿐, 열애가 아닙니다.",
+            "image": "fakenews1.png"
+        },
+        {
+            "headline": "중국은 아파트 옥상에서 비를 내리는 냉방 시스템을 이용",
+            "isFake": false,
+            "reason": "실제로 중국 산시성의 한 아파트에 옥상 비 냉방시스템을 설치하여 운영 중입니다.",
+            "image": "truenews1.png"
+        },
+        {
+            "headline": "시각장애인 지원 캥거루 비행기 탑승 거부.... 티켓 샀는데도 안되나",
+            "isFake": true,
+            "reason": "탑승권을 든 채 얌전히 서 있는 캥거루는 사실 AI(인공지능)로 만들어진 이미지입니다.",
+            "image": "fakenews2.png"
+        }
+    ];
+
+    let currentIndex = 0;
+    let score = 0;
+
+    const cardEl = document.getElementById('news-card');
+    const actionBtns = document.getElementById('action-buttons');
+    const nextBtn = document.getElementById('next-btn');
+    const expBox = document.getElementById('explanation-box');
+    const resStatus = document.getElementById('result-status');
+    const reasonText = document.getElementById('reason-text');
+    
+    const gameStage = document.getElementById('game-stage');
+    const resultStage = document.getElementById('result-stage');
+
+    function loadCard(index) {
+        if (index >= quizData.length) {
+            showFinalResult();
+            return;
+        }
+
+        // 뷰 초기화
+        cardEl.className = 'card';
+        cardEl.innerHTML = '';
+        expBox.style.display = 'none';
+        nextBtn.style.display = 'none';
+        actionBtns.style.display = 'flex';
+
+        const currentQuiz = quizData[index];
+
+        // 이미지 조건부 엘리먼트 생성
+        if (currentQuiz.image) {
+            const imgEl = document.createElement('img');
+            imgEl.src = currentQuiz.image;
+            imgEl.alt = "뉴스 이미지";
+            // 테스트 단계에서 실제 폴더에 파일이 없더라도 엑박 아이콘을 숨기는 예외처리
+            imgEl.onerror = function() {
+                this.style.display = 'none';
+            };
+            cardEl.appendChild(imgEl);
+        }
+
+        // 헤드라인 추가
+        const headlineEl = document.createElement('div');
+        headlineEl.className = 'headline';
+        headlineEl.innerText = currentQuiz.headline;
+        cardEl.appendChild(headlineEl);
+    }
+
+    function checkAnswer(userChoice) {
+        const currentQuiz = quizData[currentIndex];
+        const isCorrect = (userChoice === currentQuiz.isFake);
+
+        actionBtns.style.display = 'none';
+        nextBtn.style.display = 'block';
+        expBox.style.display = 'block';
+
+        if (isCorrect) {
+            score++;
+            cardEl.classList.add('correct');
+            resStatus.innerText = "🎉 정답입니다!";
+            resStatus.style.color = "var(--success)";
+        } else {
+            cardEl.classList.add('wrong');
+            resStatus.innerText = "😥 아쉽습니다! 오답입니다.";
+            resStatus.style.color = "var(--danger)";
+        }
+
+        reasonText.innerText = currentQuiz.reason;
+    }
+
+    function nextCard() {
+        currentIndex++;
+        loadCard(currentIndex);
+    }
+
+    function showFinalResult() {
+        gameStage.style.display = 'none';
+        resultStage.style.display = 'block';
+        document.getElementById('correct-count').innerText = score;
+        document.getElementById('total-count').innerText = quizData.length;
+    }
+
+    function restartGame() {
+        currentIndex = 0;
+        score = 0;
+        resultStage.style.display = 'none';
+        gameStage.style.display = 'block';
+        loadCard(currentIndex);
+    }
+
+    // 초기 실행
+    loadCard(currentIndex);
+</script>
+
+</body>
+</html>
